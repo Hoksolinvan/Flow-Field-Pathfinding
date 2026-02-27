@@ -1,11 +1,4 @@
 #include "flow_field.hpp"
-#include <iostream>
-#include <stdio.h>
-#include <utility>
-#include <stdexcept>
-#include <vector>
-#include <limits>
-#include <queue>
 
 
 #define range_of_motion 4
@@ -23,10 +16,8 @@ std::vector<std::vector<Tile>>& GenerateFlowField::Generate() {
         Generate_Cost_Field();
         Generate_Integration_Field();
         Generate_Flow_Field();
-
-        std::vector<std::vector<Tile>>* p = nullptr; 
-        return p;
-    }
+        return matrix;
+}
 
 
 void GenerateFlowField::Generate_Cost_Field(){
@@ -84,6 +75,12 @@ void GenerateFlowField::Generate_Flow_Field(){
 
     for(int x =0; x< tile_size_x; x++){
         for(int y =0; y <tile_size_y; y++){
+
+            if(x==goal_x && y==goal_y) {
+                matrix[y][x].next_Tile.first = goal_x;
+                matrix[y][x].next_Tile.second = goal_y;
+                continue; 
+            }
             
             float current_min = std::numeric_limits<float>::infinity();
             std::pair<int,int> current_position = {-1,-1};

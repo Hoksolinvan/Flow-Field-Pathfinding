@@ -3,40 +3,45 @@
 
 
 
-constexpr int dimension_x = 8;
-constexpr int dimension_y = 8;
+constexpr int dimension_x = 10;
+constexpr int dimension_y = 10;
 
 
-// int main(){
+struct Grid_Cells {
 
-//     // Create a Matrix
-//     GenerateFlowField main_template(0,0,8,8);
+    Grid_Cells(float coordinate_x, float coordinate_y, float width, float height) : rect{coordinate_x,coordinate_y,width,height}, clicked(false) {}
 
-//     main_template.Generate();
+    SDL_FRect rect;
+    bool clicked;
 
-
-//     main_template.Print_Cost_Field();
-//     std::cout << std::endl;
-//     main_template.Print_Integration_Field();
-//         std::cout << std::endl;
-//     main_template.Print_Flow_Field();
+};
 
 
-    
 
-//     return 0;
-// }
-
-/* primitives.c ... */
-
-/*
- * This example creates an SDL window and renderer, and then draws some lines,
- * rectangles and points to it every frame.
- *
- * This code is public domain. Feel free to use it for any purpose!
- */
 int main(int argc, char* argv[])
 {
+
+    bool global_clicked = false;
+    int window_x = 1000;
+    int window_y = 1000;
+    float increment_x = 1000 / dimension_x;
+    float increment_y = 1000 / dimension_y;
+    bool running = true;
+    std::pair<int,int> previous_index;
+    SDL_Event event;
+
+    std::vector<Grid_Cells> Cell_vector;
+        for(int i =0; i< dimension_x; i++){
+            for(int j=0; j < dimension_y; j++){
+               
+                Cell_vector.emplace_back(i*increment_x, j*increment_y, increment_x, increment_y);
+             
+
+            }
+
+        }
+
+
     // 1. Initialize SDL
     if (!SDL_Init(SDL_INIT_VIDEO)) {
       std::cerr << "issues with initializing SDL3: "
@@ -45,9 +50,6 @@ int main(int argc, char* argv[])
        return -1;
        
     }
-
-    int window_x = 1000;
-    int window_y = 1000;
 
     // 2. Create Window
     SDL_Window* window = SDL_CreateWindow(
@@ -77,11 +79,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    int increment_x = 1000 / dimension_x;
-    int increment_y = 1000 / dimension_y;
-
-    bool running = true;
-    SDL_Event event;
+    
 
     // 4. Main Loop
     while (running) {
@@ -89,6 +87,19 @@ int main(int argc, char* argv[])
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
+            }
+
+            if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+            {
+               int grid_x = event.button.x / increment_x;
+                int grid_y = event.button.y / increment_y;
+
+                if (grid_x >= 0 && grid_x < dimension_x &&
+                    grid_y >= 0 && grid_y < dimension_y)
+                {
+                    int index = grid_x * dimension_y + grid_y;
+                    Cell_vector[index].clicked = true;
+                }
             }
         }
 
@@ -100,21 +111,21 @@ int main(int argc, char* argv[])
 
         
         
-        for(int i =0; i< dimension_x; i++){
-            for(int j=0; j < dimension_y; j++){
-                SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-                SDL_FRect rect = { static_cast<float>(i*increment_x),
-                    static_cast<float>(j*increment_y), static_cast<float>(increment_x),
-                    static_cast<float>(increment_y) };
-                SDL_RenderFillRect(renderer,&rect);
-                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-                SDL_RenderRect(renderer, &rect);
 
-            }
+        for (const auto& cell : Cell_vector){
+              if (cell.clicked)
+        SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
+    else
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 
+    SDL_RenderFillRect(renderer, &cell.rect);
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderRect(renderer, &cell.rect);
         }
 
 
+        
        
 
        

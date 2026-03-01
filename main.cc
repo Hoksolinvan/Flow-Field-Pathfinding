@@ -1,10 +1,11 @@
 #include "flow_field.hpp"
+#include "arrow.hpp"
 #include <SDL3/SDL.h>
 
 
 
-constexpr int dimension_x = 10;
-constexpr int dimension_y = 10;
+constexpr int dimension_x = 20;
+constexpr int dimension_y = 20;
 
 
 struct Grid_Cells {
@@ -21,16 +22,16 @@ struct Grid_Cells {
 int main(int argc, char* argv[])
 {
 
-    bool global_clicked = false;
     int window_x = 1000;
     int window_y = 1000;
     float increment_x = 1000 / dimension_x;
     float increment_y = 1000 / dimension_y;
     bool running = true;
-    std::pair<int,int> previous_index;
+    std::pair<int,int> previous_index{-1,-1};
     SDL_Event event;
-
     std::vector<Grid_Cells> Cell_vector;
+
+
         for(int i =0; i< dimension_x; i++){
             for(int j=0; j < dimension_y; j++){
                
@@ -53,7 +54,7 @@ int main(int argc, char* argv[])
 
     // 2. Create Window
     SDL_Window* window = SDL_CreateWindow(
-        "SDL3 Boilerplate",
+        "Flow_Field Visualization",
         window_x,
         window_y,
         0
@@ -98,7 +99,16 @@ int main(int argc, char* argv[])
                     grid_y >= 0 && grid_y < dimension_y)
                 {
                     int index = grid_x * dimension_y + grid_y;
+                    
+
+                    if(previous_index.first != -1 && previous_index.second != -1){
+                    int temp_index = previous_index.first * dimension_y + previous_index.second;
+                    Cell_vector[temp_index].clicked = false;
+                    
+                    }
                     Cell_vector[index].clicked = true;
+                    previous_index = {grid_x, grid_y};
+                 
                 }
             }
         }
@@ -113,13 +123,15 @@ int main(int argc, char* argv[])
         
 
         for (const auto& cell : Cell_vector){
-              if (cell.clicked)
+        if (cell.clicked){
         SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
-    else
+
+        }
+        else{
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        }
 
     SDL_RenderFillRect(renderer, &cell.rect);
-
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderRect(renderer, &cell.rect);
         }

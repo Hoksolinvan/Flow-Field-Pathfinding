@@ -1,7 +1,7 @@
 #include "flow_field.hpp"
 
 
-#define range_of_motion 4
+constexpr int range_of_motion = 4;
 
 GenerateFlowField::GenerateFlowField(int goal_x, int goal_y, int tile_size_x, int tile_size_y) 
         : goal_x(goal_x), goal_y(goal_y), tile_size_x(tile_size_x), tile_size_y(tile_size_y),

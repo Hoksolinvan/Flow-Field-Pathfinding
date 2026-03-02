@@ -1,6 +1,7 @@
 #include "flow_field.hpp"
 #include "arrow.hpp"
 #include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
 
 
 
@@ -31,7 +32,8 @@ int main(int argc, char* argv[])
     SDL_Event event;
     std::vector<Grid_Cells> Cell_vector;
     std::vector<Arrow> Arrows;
-
+    SDL_Surface* icon = IMG_Load("assets/Flow_Field_Logo.png");
+    
     auto flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y).Generate();
     
     
@@ -48,6 +50,8 @@ int main(int argc, char* argv[])
        
     }
 
+    
+
     // 2. Create Window
     SDL_Window* window = SDL_CreateWindow(
         "Flow_Field Visualization",
@@ -63,6 +67,14 @@ int main(int argc, char* argv[])
           << '\n';
         return -1;
     }
+
+    if (!icon) {
+    SDL_Log("Failed to load icon: %s", SDL_GetError());
+    return -1;
+} else {
+    SDL_SetWindowIcon(window, icon);
+    SDL_DestroySurface(icon);
+}
 
     // 3. Create Renderer
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);

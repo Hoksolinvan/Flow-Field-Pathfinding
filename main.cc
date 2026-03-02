@@ -4,8 +4,8 @@
 
 
 
-constexpr int dimension_x = 100;
-constexpr int dimension_y = 100;
+constexpr int dimension_x = 20;
+constexpr int dimension_y = 20;
 constexpr int window_x = 1000;
 constexpr int window_y = 1000;
 constexpr float increment_x = 1000/dimension_x;
@@ -88,9 +88,7 @@ int main(int argc, char* argv[])
     
         Cell_vector[0].clicked = true;
 
-    GenerateFlowField current = GenerateFlowField(0,0,dimension_x,dimension_y);
-
-    
+   
 
     // 4. Main Loop
     while (running) {
@@ -153,19 +151,19 @@ int main(int argc, char* argv[])
             if(x==previous_index.first && y==previous_index.second) continue;
 
 
-            auto [flow_first, flow_second] = flow_field[x][y].next_Tile;
+            auto [flow_x, flow_y] = flow_field[y][x].next_Tile;
 
-            if(x-1==flow_first){
-            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Left);
+            if(flow_y < y){ 
+            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Up);
             }
-            else if(x+1==flow_first){
-            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Right);
-            }
-            else if(y-1==flow_first){
+            else if(flow_y > y){ 
             current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Down);
             }
-            else if {
-
+            else if(flow_x < x){ 
+            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Left);
+            }
+            else if(flow_x > x){    
+            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Right);
             }
 
         }

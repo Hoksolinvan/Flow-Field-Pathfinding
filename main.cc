@@ -4,9 +4,14 @@
 
 
 
-constexpr int dimension_x = 20;
-constexpr int dimension_y = 20;
-
+constexpr int dimension_x = 100;
+constexpr int dimension_y = 100;
+constexpr int window_x = 1000;
+constexpr int window_y = 1000;
+constexpr float increment_x = 1000/dimension_x;
+constexpr float increment_y = 1000/dimension_y;
+bool running = true;
+std::pair<int,int> previous_index{0,0};
 
 struct Grid_Cells {
 
@@ -21,15 +26,14 @@ struct Grid_Cells {
 int main(int argc, char* argv[])
 {
 
-    int window_x = 1000;
-    int window_y = 1000;
-    float increment_x = 1000 / dimension_x;
-    float increment_y = 1000 / dimension_y;
-    bool running = true;
+    
     std::pair<int,int> previous_index{0,0};
     SDL_Event event;
     std::vector<Grid_Cells> Cell_vector;
     std::vector<Arrow> Arrows;
+
+    auto flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y).Generate();
+    
     
 
     
@@ -111,6 +115,7 @@ int main(int argc, char* argv[])
                     int temp_index = previous_index.first * dimension_y + previous_index.second;
                     Cell_vector[temp_index].clicked = false;
                     
+                    flow_field = GenerateFlowField(grid_x,grid_y,dimension_x,dimension_y).Generate();
                     
                     Cell_vector[index].clicked = true;
                     previous_index = {grid_x, grid_y};
@@ -126,22 +131,7 @@ int main(int argc, char* argv[])
         SDL_RenderClear(renderer);
 
         
-        
-
-    //     for (const auto& cell : Cell_vector){
-    //     if (cell.clicked){
-    //     SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
-
-    //     }
-    //     else{
-    //     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-    //     }
-
-    // SDL_RenderFillRect(renderer, &cell.rect);
-    // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    // SDL_RenderRect(renderer, &cell.rect);
-    //     }
-
+    
 
     for(int x =0; x<dimension_x;x++){
         for(int y =0; y<dimension_y;y++){
@@ -158,7 +148,25 @@ int main(int argc, char* argv[])
 
 
             SDL_SetRenderDrawColor(renderer,0,0,0,255);
-            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Up);
+
+
+            if(x==previous_index.first && y==previous_index.second) continue;
+
+
+            auto [flow_first, flow_second] = flow_field[x][y].next_Tile;
+
+            if(x-1==flow_first){
+            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Left);
+            }
+            else if(x+1==flow_first){
+            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Right);
+            }
+            else if(y-1==flow_first){
+            current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Down);
+            }
+            else if {
+
+            }
 
         }
     }

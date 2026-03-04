@@ -1,0 +1,6 @@
+framework module png {
+  umbrella header "png.h"
+  export *
+
+  module * { export * }
+}

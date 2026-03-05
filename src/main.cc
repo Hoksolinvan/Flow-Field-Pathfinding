@@ -16,8 +16,9 @@ std::pair<int,int> previous_index{0,0};
 
 struct Grid_Cells {
 
-    Grid_Cells(float coordinate_x, float coordinate_y, float width, float height) : rect{coordinate_x,coordinate_y,width,height}, clicked(false) {}
+    Grid_Cells(float coordinate_x, float coordinate_y, float width, float height) : rect{coordinate_x,coordinate_y,width,height}, clicked(false), obstacle(false) {}
     SDL_FRect rect;
+    bool obstacle;
     bool clicked;
 
 };
@@ -97,6 +98,16 @@ int main(int argc, char* argv[])
             }
 
         }
+
+        Cell_vector[1].obstacle = true;
+        Cell_vector[25].obstacle = true;
+        Cell_vector[15].obstacle = true;
+        Cell_vector[10].obstacle = true;
+        Cell_vector[11].obstacle = true;
+        Cell_vector[12].obstacle = true;
+        Cell_vector[13].obstacle = true;
+        Cell_vector[14].obstacle = true;
+        Cell_vector[16].obstacle = true;
     
         Cell_vector[0].clicked = true;
 
@@ -150,6 +161,7 @@ int main(int argc, char* argv[])
             auto current_arrow = Arrows[x*dimension_y+y];
 
             if(current_cell.clicked) SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
+            else if(current_cell.obstacle) SDL_SetRenderDrawColor(renderer,0,0,0,255);
             else SDL_SetRenderDrawColor(renderer, 255, 200, 0, 255);
 
             SDL_RenderFillRect(renderer, &current_cell.rect);

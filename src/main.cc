@@ -108,7 +108,8 @@ int main(int argc, char* argv[])
         Cell_vector[13].obstacle = true;
         Cell_vector[14].obstacle = true;
         Cell_vector[16].obstacle = true;
-    
+
+     
         Cell_vector[0].clicked = true;
 
    

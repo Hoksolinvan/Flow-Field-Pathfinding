@@ -71,12 +71,17 @@ void GenerateFlowField::Generate_Integration_Field(){
 void GenerateFlowField::Generate_Flow_Field(){
 
     std::pair<int,int> arr[range_of_motion] = {{-1,0},{1,0},{0,1},{0,-1}}; 
+    std::array<std::pair<int,int>,9> obstacle = {{{0,1},{2,5},{1,5},{1,0},{1,1},{1,2},{1,3},{1,4},{1,6}}};
+    
 
+    for(int i=0; i<obstacle.size();i++){
+        matrix[obstacle[i].second][obstacle[i].first].is_obstacle=true;
+    }
 
     for(int x =0; x< tile_size_x; x++){
         for(int y =0; y <tile_size_y; y++){
 
-            if(x==goal_x && y==goal_y) {
+            if(x==goal_x && y==goal_y && !matrix[y][x].is_obstacle) {
                 matrix[y][x].next_Tile.first = goal_x;
                 matrix[y][x].next_Tile.second = goal_y;
                 continue; 

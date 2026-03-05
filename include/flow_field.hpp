@@ -15,6 +15,7 @@ struct Tile {
     int cost_field;
     float integration_field = std::numeric_limits<float>::infinity();
     std::pair<int,int> next_Tile;
+    bool is_obstacle=false;
 };
 
 struct Node {

@@ -28,11 +28,12 @@ struct Grid_Cells {
 
 
 int main(int argc, char* argv[])
-{
+{   
+    srand(time(0));
 
-    auto first_obstacle = terrainGenerator(3,2,dimension_x,dimension_y,8);
-    auto second_obstacle = terrainGenerator(5,5,dimension_x,dimension_y,13);
-    auto third_obstacle = terrainGenerator(8,9,dimension_x,dimension_y,9);
+    auto first_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,8);
+    auto second_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,13);
+    auto third_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,9);
 
     
     std::pair<int,int> previous_index{0,0};
@@ -44,7 +45,8 @@ int main(int argc, char* argv[])
     Arrows.resize(dimension_y);
     SDL_Surface* icon = IMG_Load("assets/Flow_Field_Logo.png");
     
-    auto flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y).Generate();
+    GenerateFlowField flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y);
+    auto matrix = flow_field.Generate();
     
     
 
@@ -111,15 +113,21 @@ int main(int argc, char* argv[])
     
     for(const auto& [x,y]: first_obstacle){
         Cell_vector[x][y].obstacle=true;
+       flow_field.setMatrix_obstacle(x,y);
     }
 
     for(const auto& [x,y]: second_obstacle){
         Cell_vector[x][y].obstacle=true;
+       flow_field.setMatrix_obstacle(x,y);
     }
 
     for(const auto& [x,y]: third_obstacle){
         Cell_vector[x][y].obstacle=true;
+        flow_field.setMatrix_obstacle(x,y);
     }
+
+
+
 
     
      
@@ -141,15 +149,18 @@ int main(int argc, char* argv[])
                 int grid_y = event.button.y / increment_y;
 
                 if (grid_x >= 0 && grid_x < dimension_x &&
-                    grid_y >= 0 && grid_y < dimension_y)
+                    grid_y >= 0 && grid_y < dimension_y && !Cell_vector[grid_x][grid_y].obstacle)
                 {
                     int index = grid_x * dimension_y + grid_y;
                     
 
                     Cell_vector[previous_index.first][previous_index.second].clicked = false;
                     
-                    flow_field = GenerateFlowField(grid_x,grid_y,dimension_x,dimension_y).Generate();
-                    
+                    flow_field.setGoal(grid_x, grid_y);
+                    flow_field.regenerate();
+
+                   
+                                    
                     Cell_vector[grid_x][grid_y].clicked = true;
                     previous_index = {grid_x, grid_y};
                  
@@ -187,7 +198,7 @@ int main(int argc, char* argv[])
             if(x==previous_index.first && y==previous_index.second) continue;
 
 
-            auto [flow_x, flow_y] = flow_field[y][x].next_Tile;
+            auto [flow_x, flow_y] = flow_field.nextTile(x,y);
 
             if(flow_y < y){ 
             current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Up);

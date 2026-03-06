@@ -40,6 +40,10 @@ class GenerateFlowField {
 
     std::vector<std::vector<Tile>>& Generate();
 
+    void regenerate();
+
+    void setGoal(int new_goal_x, int new_goal_y);
+
     ~GenerateFlowField()=default;
 
    
@@ -54,6 +58,10 @@ class GenerateFlowField {
 
     // prints out the flow field
     void Print_Flow_Field() const;
+
+    void setMatrix_obstacle(int x, int y);
+
+    std::pair<int,int> nextTile(int x, int y);
     
 
     private:

@@ -31,8 +31,11 @@ int main(int argc, char* argv[])
     
     std::pair<int,int> previous_index{0,0};
     SDL_Event event;
-    std::vector<Grid_Cells> Cell_vector;
-    std::vector<Arrow> Arrows;
+   
+    std::vector<std::vector<Grid_Cells>> Cell_vector;
+    Cell_vector.resize(dimension_y);
+    std::vector<std::vector<Arrow>> Arrows;
+    Arrows.resize(dimension_y);
     SDL_Surface* icon = IMG_Load("assets/Flow_Field_Logo.png");
     
     auto flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y).Generate();
@@ -92,25 +95,17 @@ int main(int argc, char* argv[])
     for(int i =0; i< dimension_x; i++){
             for(int j=0; j < dimension_y; j++){
                
-                Cell_vector.emplace_back(i*increment_x, j*increment_y, increment_x, increment_y);
-                Arrows.emplace_back(renderer);
+                // emplace_back(i*increment_x, j*increment_y, increment_x, increment_y);
+                Cell_vector[i].push_back(Grid_Cells(i*increment_x,j*increment_y,increment_x,increment_y));
+                Arrows[i].push_back(renderer);
 
             }
 
         }
 
-        Cell_vector[1].obstacle = true;
-        Cell_vector[25].obstacle = true;
-        Cell_vector[15].obstacle = true;
-        Cell_vector[10].obstacle = true;
-        Cell_vector[11].obstacle = true;
-        Cell_vector[12].obstacle = true;
-        Cell_vector[13].obstacle = true;
-        Cell_vector[14].obstacle = true;
-        Cell_vector[16].obstacle = true;
-
+        
      
-        Cell_vector[0].clicked = true;
+        Cell_vector[0][0].clicked = true;
 
    
 
@@ -134,12 +129,13 @@ int main(int argc, char* argv[])
                     
 
                     // if(previous_index.first != 0 && previous_index.second != 0){
-                    int temp_index = previous_index.first * dimension_y + previous_index.second;
-                    Cell_vector[temp_index].clicked = false;
+                    //int temp_index = previous_index.first * dimension_y + previous_index.second;
+                    Cell_vector[previous_index.first][previous_index.second].clicked = false;
                     
                     flow_field = GenerateFlowField(grid_x,grid_y,dimension_x,dimension_y).Generate();
                     
-                    Cell_vector[index].clicked = true;
+                    //Cell_vector[index].clicked = true;
+                    Cell_vector[grid_x][grid_y].clicked = true;
                     previous_index = {grid_x, grid_y};
                  
                 }
@@ -158,8 +154,8 @@ int main(int argc, char* argv[])
     for(int x =0; x<dimension_x;x++){
         for(int y =0; y<dimension_y;y++){
 
-            auto current_cell = Cell_vector[x*dimension_y+y];
-            auto current_arrow = Arrows[x*dimension_y+y];
+            auto current_cell = Cell_vector[x][y]; //Cell_vector[x*dimension_y+y];
+            auto current_arrow = Arrows[x][y];
 
             if(current_cell.clicked) SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
             else if(current_cell.obstacle) SDL_SetRenderDrawColor(renderer,0,0,0,255);

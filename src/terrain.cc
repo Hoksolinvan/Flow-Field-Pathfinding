@@ -28,7 +28,7 @@ std::vector<std::pair<int,int>> terrainGenerator(int start_x, int start_y, int m
             }
 
             for(const auto& [i,j] : movement_patterns){
-                int temp_x, temp_y = x+i; y+j;
+                int temp_x= x+i, temp_y= y+j;
                 if((temp_x>=0 && temp_x<max_x) && (temp_y>=0 && temp_y<max_y)){
                     if((rand()%100) < 75){
                         cur_queue.push({temp_x,temp_y});
@@ -67,7 +67,7 @@ std::vector<std::pair<int,int>> terrainGenerator(int start_x, int start_y, int m
 
 
             for(const auto& [i,j]: movement_patterns){
-                int temp_x, temp_y = x+i; y+j;
+                int temp_x= x+i, temp_y= y+j;
                 if((temp_x>=0 && temp_x<max_x) && (temp_y>=0 && temp_y<max_y)){
                     if((rand()%100) < 75){
                         cur_stack.push({temp_x,temp_y});

@@ -1,10 +1,12 @@
 #include "flow_field.hpp"
 #include "arrow.hpp"
+#include <terrain.hpp>
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
 
 
+constexpr int terrain_count = 3;
 constexpr int dimension_x = 20;
 constexpr int dimension_y = 20;
 constexpr int window_x = 1000;
@@ -27,6 +29,10 @@ struct Grid_Cells {
 
 int main(int argc, char* argv[])
 {
+
+    auto first_obstacle = terrainGenerator(3,2,dimension_x,dimension_y,8);
+    auto second_obstacle = terrainGenerator(5,5,dimension_x,dimension_y,13);
+    auto third_obstacle = terrainGenerator(8,9,dimension_x,dimension_y,9);
 
     
     std::pair<int,int> previous_index{0,0};
@@ -95,7 +101,6 @@ int main(int argc, char* argv[])
     for(int i =0; i< dimension_x; i++){
             for(int j=0; j < dimension_y; j++){
                
-                // emplace_back(i*increment_x, j*increment_y, increment_x, increment_y);
                 Cell_vector[i].push_back(Grid_Cells(i*increment_x,j*increment_y,increment_x,increment_y));
                 Arrows[i].push_back(renderer);
 
@@ -103,7 +108,20 @@ int main(int argc, char* argv[])
 
         }
 
-        
+    
+    for(const auto& [x,y]: first_obstacle){
+        Cell_vector[x][y].obstacle=true;
+    }
+
+    for(const auto& [x,y]: second_obstacle){
+        Cell_vector[x][y].obstacle=true;
+    }
+
+    for(const auto& [x,y]: third_obstacle){
+        Cell_vector[x][y].obstacle=true;
+    }
+
+    
      
         Cell_vector[0][0].clicked = true;
 
@@ -128,13 +146,10 @@ int main(int argc, char* argv[])
                     int index = grid_x * dimension_y + grid_y;
                     
 
-                    // if(previous_index.first != 0 && previous_index.second != 0){
-                    //int temp_index = previous_index.first * dimension_y + previous_index.second;
                     Cell_vector[previous_index.first][previous_index.second].clicked = false;
                     
                     flow_field = GenerateFlowField(grid_x,grid_y,dimension_x,dimension_y).Generate();
                     
-                    //Cell_vector[index].clicked = true;
                     Cell_vector[grid_x][grid_y].clicked = true;
                     previous_index = {grid_x, grid_y};
                  
@@ -154,10 +169,10 @@ int main(int argc, char* argv[])
     for(int x =0; x<dimension_x;x++){
         for(int y =0; y<dimension_y;y++){
 
-            auto current_cell = Cell_vector[x][y]; //Cell_vector[x*dimension_y+y];
+            auto current_cell = Cell_vector[x][y]; 
             auto current_arrow = Arrows[x][y];
 
-            if(current_cell.clicked) SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
+            if(current_cell.clicked && !current_cell.obstacle) SDL_SetRenderDrawColor(renderer, 0, 200, 0, 255);
             else if(current_cell.obstacle) SDL_SetRenderDrawColor(renderer,0,0,0,255);
             else SDL_SetRenderDrawColor(renderer, 255, 200, 0, 255);
 

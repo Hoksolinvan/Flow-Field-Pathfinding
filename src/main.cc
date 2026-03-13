@@ -1,8 +1,9 @@
-#include "flow_field.hpp"
-#include "arrow.hpp"
+#include <flow_field.hpp>
+#include <arrow.hpp>
 #include <terrain.hpp>
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
+#include <random>
 
 
 
@@ -13,8 +14,14 @@ constexpr int window_x = 1000;
 constexpr int window_y = 1000;
 constexpr float increment_x = 1000/dimension_x;
 constexpr float increment_y = 1000/dimension_y;
+constexpr int particle_increment = 10;
+constexpr int particle_total_count = 1000;
 bool running = true;
 std::pair<int,int> previous_index{0,0};
+
+enum class Color {
+    Red, Blue, Green
+};
 
 struct Grid_Cells {
 
@@ -23,6 +30,17 @@ struct Grid_Cells {
     bool obstacle;
     bool clicked;
 
+};
+
+
+struct Particle {
+    Particle(float position_x,float position_y, Color color): position_x(position_x), position_y(position_y), color(color){}
+    float position_x;
+    float position_y;
+    float vx=0.05;
+    float vy=0.05;
+    Color color;
+    float size=10;
 };
 
 
@@ -40,6 +58,7 @@ int main(int argc, char* argv[])
     SDL_Event event;
    
     std::vector<std::vector<Grid_Cells>> Cell_vector;
+    std::vector<Particle> particles;
     Cell_vector.resize(dimension_y);
     std::vector<std::vector<Arrow>> Arrows;
     Arrows.resize(dimension_y);
@@ -48,6 +67,16 @@ int main(int argc, char* argv[])
     GenerateFlowField flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y);
     auto matrix = flow_field.Generate();
     
+
+    std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_real_distribution<float> distX(0, window_x);
+std::uniform_real_distribution<float> distY(0, window_y);
+
+    for(int i =0; i< 100; i++){
+        particles.emplace_back(distX(gen),distY(gen),Color::Red);
+
+    }
     
 
     
@@ -133,10 +162,14 @@ int main(int argc, char* argv[])
      
         Cell_vector[0][0].clicked = true;
 
-   
+    
+    Uint64 last_time = SDL_GetTicks();
 
     // 4. Main Loop
     while (running) {
+        Uint64 now = SDL_GetTicks();
+        float dt = (now - last_time) / 1000.0f;
+        last_time = now;
         // Quitting Handler
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
@@ -170,11 +203,6 @@ int main(int argc, char* argv[])
 
 
 
-        // 5. Render
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderClear(renderer);
-
-        
     
 
     for(int x =0; x<dimension_x;x++){
@@ -212,6 +240,21 @@ int main(int argc, char* argv[])
             else if(flow_x > x){    
             current_arrow.draw(x*increment_x,y*increment_y,increment_x,Direction::Right);
             }
+
+
+
+    SDL_SetRenderDrawColor(renderer,255,0,0,255);
+
+    for(size_t x = 0; x < particles.size();x++){
+        
+
+        SDL_FRect rect = {particles[x].position_x,particles[x].position_y, particles[x].size,particles[x].size};
+        SDL_RenderFillRect(renderer,&rect);
+
+        particles[x].position_x+=particles[x].vx*dt;
+        particles[x].position_y+=particles[x].vy*dt;
+
+    }
 
         }
     }

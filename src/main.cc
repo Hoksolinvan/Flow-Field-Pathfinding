@@ -2,6 +2,7 @@
 #include <arrow.hpp>
 #include <terrain.hpp>
 #include <SDL3/SDL.h>
+#include <vector>
 #include <SDL3_image/SDL_image.h>
 #include <random>
 
@@ -17,7 +18,9 @@ constexpr float increment_y = 1000/dimension_y;
 constexpr int particle_increment = 10;
 constexpr int particle_total_count = 1000;
 bool running = true;
-std::pair<int,int> previous_index{0,0};
+float goal_x;
+float goal_y;
+std::pair<int,int> previous_index{10,10};
 
 enum class Color {
     Red, Blue, Green
@@ -37,12 +40,31 @@ struct Particle {
     Particle(float position_x,float position_y, Color color): position_x(position_x), position_y(position_y), color(color){}
     float position_x;
     float position_y;
-    float vx=0.05;
-    float vy=0.05;
+    float vx=15;
+    float vy=15;
+    
     Color color;
     float size=10;
 };
 
+
+void reset(std::vector<Particle>& particles){
+     std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> distX(0, window_x);
+    std::uniform_real_distribution<float> distY(0, window_y);
+
+    particles.clear();
+
+    
+    for(int i =0; i< 200; i++){
+        particles.emplace_back(distX(gen),distY(gen),Color::Red);
+
+    }
+    
+
+    return;
+}
 
 
 int main(int argc, char* argv[])
@@ -54,7 +76,6 @@ int main(int argc, char* argv[])
     auto third_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,9);
 
     
-    std::pair<int,int> previous_index{0,0};
     SDL_Event event;
    
     std::vector<std::vector<Grid_Cells>> Cell_vector;
@@ -69,9 +90,9 @@ int main(int argc, char* argv[])
     
 
     std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_real_distribution<float> distX(0, window_x);
-std::uniform_real_distribution<float> distY(0, window_y);
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> distX(0, window_x);
+    std::uniform_real_distribution<float> distY(0, window_y);
 
     for(int i =0; i< 100; i++){
         particles.emplace_back(distX(gen),distY(gen),Color::Red);
@@ -157,10 +178,9 @@ std::uniform_real_distribution<float> distY(0, window_y);
 
 
 
-
     
      
-        Cell_vector[0][0].clicked = true;
+        Cell_vector[previous_index.first][previous_index.second].clicked = true;
 
     
     Uint64 last_time = SDL_GetTicks();
@@ -170,6 +190,8 @@ std::uniform_real_distribution<float> distY(0, window_y);
         Uint64 now = SDL_GetTicks();
         float dt = (now - last_time) / 1000.0f;
         last_time = now;
+
+
         // Quitting Handler
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
@@ -178,15 +200,16 @@ std::uniform_real_distribution<float> distY(0, window_y);
 
             if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
             {
+
                int grid_x = event.button.x / increment_x;
                 int grid_y = event.button.y / increment_y;
+
+                
 
                 if (grid_x >= 0 && grid_x < dimension_x &&
                     grid_y >= 0 && grid_y < dimension_y && !Cell_vector[grid_x][grid_y].obstacle)
                 {
-                    int index = grid_x * dimension_y + grid_y;
-                    
-
+                   
                     Cell_vector[previous_index.first][previous_index.second].clicked = false;
                     
                     flow_field.setGoal(grid_x, grid_y);
@@ -196,6 +219,7 @@ std::uniform_real_distribution<float> distY(0, window_y);
                                     
                     Cell_vector[grid_x][grid_y].clicked = true;
                     previous_index = {grid_x, grid_y};
+                    reset(particles);
                  
                 }
             }
@@ -243,29 +267,49 @@ std::uniform_real_distribution<float> distY(0, window_y);
 
 
 
-    SDL_SetRenderDrawColor(renderer,255,0,0,255);
+        }
 
-    for(size_t x = 0; x < particles.size();x++){
+       
+    }
+
+
+        SDL_SetRenderDrawColor(renderer,255,0,0,255);
+        goal_x = previous_index.first * increment_x + increment_x/2;
+        goal_y = previous_index.second * increment_y + increment_y/2;
+
+
+        for(size_t x = 0; x < particles.size();x++){
         
 
         SDL_FRect rect = {particles[x].position_x,particles[x].position_y, particles[x].size,particles[x].size};
         SDL_RenderFillRect(renderer,&rect);
 
-        particles[x].position_x+=particles[x].vx*dt;
-        particles[x].position_y+=particles[x].vy*dt;
 
-    }
 
+        if(particles[x].position_x > goal_x){
+            particles[x].position_x-=particles[x].vx*dt;
         }
+        else{
+            particles[x].position_x+=particles[x].vx*dt;
+        }
+
+        if(particles[x].position_y > goal_y){
+            particles[x].position_y-=particles[x].vy*dt;
+        }
+        else
+        {
+             particles[x].position_y+=particles[x].vy*dt;
+        }
+      
+        if(particles[x].position_x > window_x || particles[x].position_y > window_y || (static_cast<int>(particles[x].position_x)==goal_x && static_cast<int>(particles[x].position_y)==goal_y)){
+            particles[x].position_x = distX(gen);
+            particles[x].position_y = distY(gen);
+        }
+
     }
 
-    
 
 
-        
-       
-
-       
 
 
         SDL_RenderPresent(renderer);

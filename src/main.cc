@@ -6,6 +6,7 @@
 #include <SDL3_image/SDL_image.h>
 #include <random>
 #include <algorithm>
+#include <cmath>
 
 
 
@@ -300,22 +301,20 @@ int main(int argc, char* argv[])
         
         auto [cur_x,cur_y]=  flow_field.nextTile(particle_cell_x,particle_cell_y);
 
+        float target_x = cur_x * increment_x + increment_x / 2.0f;
+        float target_y = cur_y * increment_y + increment_y / 2.0f;
 
-        if(particle_cell_x > cur_x){
-            particles[x].position_x-=particles[x].vx*dt;
-           
-        }
-        else if(particle_cell_x <cur_x){
-            particles[x].position_x+=particles[x].vx*dt;
-        }
+        float dx = target_x - particles[x].position_x;
+        float dy = target_y - particles[x].position_y;
 
-        
+        float dist = std::sqrt(dx * dx + dy * dy);
 
-        if(particle_cell_y > cur_y){
-            particles[x].position_y-=particles[x].vy*dt;
-        }
-        else if(particle_cell_y < cur_y){
-            particles[x].position_y+=particles[x].vy*dt;
+        if (dist > 0) {
+            float dir_x = dx / dist;
+            float dir_y = dy / dist;
+
+            particles[x].position_x += dir_x * particles[x].vx * dt;
+            particles[x].position_y += dir_y * particles[x].vx * dt;
         }
 
 

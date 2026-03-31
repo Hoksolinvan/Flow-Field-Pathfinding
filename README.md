@@ -1,4 +1,4 @@
-![Logo](asset/Flow_Field_Logo.png)
+![Logo](./asset/Flow_Field_Logo.png)
 
 ## Flow Field PathFinding
 

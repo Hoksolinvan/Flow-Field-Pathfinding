@@ -1,7 +1,7 @@
 #include "flow_field.hpp"
 
 
-constexpr int range_of_motion = 4;
+const int range_of_motion = 4;
 
 GenerateFlowField::GenerateFlowField(int goal_x, int goal_y, int tile_size_x, int tile_size_y) 
         : goal_x(goal_x), goal_y(goal_y), tile_size_x(tile_size_x), tile_size_y(tile_size_y),
@@ -58,7 +58,7 @@ void GenerateFlowField::Generate_Integration_Field(){
             if((temp_x>=0 && temp_x<tile_size_x) && (temp_y>=0 && temp_y<tile_size_y) && !matrix[temp_y][temp_x].is_obstacle){
                 auto new_cost = current.cost + matrix[temp_y][temp_x].cost_field;
                 
-                if(new_cost < matrix[temp_y][temp_x].integration_field){
+               if(new_cost < matrix[temp_y][temp_x].integration_field){
                     matrix[temp_y][temp_x].integration_field = new_cost;
                     pq.emplace(temp_x,temp_y,new_cost);
                 }

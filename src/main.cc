@@ -5,6 +5,7 @@
 #include <vector>
 #include <SDL3_image/SDL_image.h>
 #include <random>
+#include <algorithm>
 
 
 
@@ -16,15 +17,13 @@ constexpr int window_y = 1000;
 constexpr float increment_x = 1000/dimension_x;
 constexpr float increment_y = 1000/dimension_y;
 constexpr int particle_increment = 10;
-constexpr int particle_total_count = 1000;
+constexpr int particle_total_count = 200;
 bool running = true;
 float goal_x;
 float goal_y;
-std::pair<int,int> previous_index{10,10};
+std::pair<int,int> previous_index{0,0};
 
-enum class Color {
-    Red, Blue, Green
-};
+enum class Color{Red};
 
 struct Grid_Cells {
 
@@ -40,25 +39,31 @@ struct Particle {
     Particle(float position_x,float position_y, Color color): position_x(position_x), position_y(position_y), color(color){}
     float position_x;
     float position_y;
-    float vx=15;
-    float vy=15;
+    float vx=25;
+    float vy=25;
     
     Color color;
     float size=10;
 };
 
 
-void reset(std::vector<Particle>& particles){
-     std::random_device rd;
+void reset(std::vector<Particle>& particles,const std::vector<std::vector<Tile>>& matrix){
+    std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distX(0, window_x);
-    std::uniform_real_distribution<float> distY(0, window_y);
+    std::uniform_real_distribution<float> distX(0, window_x - increment_x);
+    std::uniform_real_distribution<float> distY(0, window_y - increment_y);
 
     particles.clear();
 
     
-    for(int i =0; i< 200; i++){
-        particles.emplace_back(distX(gen),distY(gen),Color::Red);
+    for(int i =0; i< particle_total_count; i++){
+        float cur_x = distX(gen), cur_y = distY(gen);
+        while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle)
+        {
+            cur_x = distX(gen); cur_y = distY(gen);
+        }
+
+        particles.emplace_back(cur_x,cur_y,Color::Red);
 
     }
     
@@ -71,36 +76,9 @@ int main(int argc, char* argv[])
 {   
     srand(time(0));
 
-    auto first_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,8);
-    auto second_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,13);
-    auto third_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,9);
-
-    
+     
     SDL_Event event;
-   
-    std::vector<std::vector<Grid_Cells>> Cell_vector;
-    std::vector<Particle> particles;
-    Cell_vector.resize(dimension_y);
-    std::vector<std::vector<Arrow>> Arrows;
-    Arrows.resize(dimension_y);
     SDL_Surface* icon = IMG_Load("assets/Flow_Field_Logo.png");
-    
-    GenerateFlowField flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y);
-    auto matrix = flow_field.Generate();
-    
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distX(0, window_x);
-    std::uniform_real_distribution<float> distY(0, window_y);
-
-    for(int i =0; i< 100; i++){
-        particles.emplace_back(distX(gen),distY(gen),Color::Red);
-
-    }
-    
-
-    
 
 
     // 1. Initialize SDL
@@ -150,6 +128,20 @@ int main(int argc, char* argv[])
         return -1;
     }
 
+
+    auto first_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,8);
+    auto second_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,13);
+    auto third_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,9);
+
+   
+    
+   
+    std::vector<std::vector<Grid_Cells>> Cell_vector;
+    std::vector<Particle> particles;
+    Cell_vector.resize(dimension_y);
+    std::vector<std::vector<Arrow>> Arrows;
+    Arrows.resize(dimension_y);
+
     for(int i =0; i< dimension_x; i++){
             for(int j=0; j < dimension_y; j++){
                
@@ -159,7 +151,8 @@ int main(int argc, char* argv[])
             }
 
         }
-
+    
+    GenerateFlowField flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y);
     
     for(const auto& [x,y]: first_obstacle){
         Cell_vector[x][y].obstacle=true;
@@ -176,11 +169,28 @@ int main(int argc, char* argv[])
         flow_field.setMatrix_obstacle(x,y);
     }
 
+    auto matrix = flow_field.Generate();
+    
+    
 
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> distX(0, window_x - increment_x);
+    std::uniform_real_distribution<float> distY(0, window_y - increment_y);
 
+    for(int i =0; i< particle_total_count; i++){
+        float cur_x = distX(gen), cur_y = distY(gen);
+        while(matrix[floor(cur_x/increment_x)][floor(cur_y/increment_y)].is_obstacle)
+        {
+            cur_x = distX(gen); cur_y = distY(gen);
+        }
+
+        particles.emplace_back(cur_x,cur_y,Color::Red);
+    }
+    
     
      
-        Cell_vector[previous_index.first][previous_index.second].clicked = true;
+    Cell_vector[previous_index.first][previous_index.second].clicked = true;
 
     
     Uint64 last_time = SDL_GetTicks();
@@ -214,12 +224,11 @@ int main(int argc, char* argv[])
                     
                     flow_field.setGoal(grid_x, grid_y);
                     flow_field.regenerate();
-
                    
                                     
                     Cell_vector[grid_x][grid_y].clicked = true;
                     previous_index = {grid_x, grid_y};
-                    reset(particles);
+                    reset(particles,matrix);
                  
                 }
             }
@@ -272,7 +281,6 @@ int main(int argc, char* argv[])
        
     }
 
-
         SDL_SetRenderDrawColor(renderer,255,0,0,255);
         goal_x = previous_index.first * increment_x + increment_x/2;
         goal_y = previous_index.second * increment_y + increment_y/2;
@@ -281,29 +289,57 @@ int main(int argc, char* argv[])
         for(size_t x = 0; x < particles.size();x++){
         
 
-        SDL_FRect rect = {particles[x].position_x,particles[x].position_y, particles[x].size,particles[x].size};
+        SDL_FRect rect = {particles[x].position_x, particles[x].position_y, particles[x].size, particles[x].size};
         SDL_RenderFillRect(renderer,&rect);
 
+        int particle_cell_x = static_cast<int>(particles[x].position_x / increment_x);
+        int particle_cell_y = static_cast<int>(particles[x].position_y / increment_y);
+        
+        particle_cell_x = std::clamp(particle_cell_x, 0, dimension_x - 1);
+        particle_cell_y = std::clamp(particle_cell_y, 0, dimension_y - 1);
+        
+        auto [cur_x,cur_y]=  flow_field.nextTile(particle_cell_x,particle_cell_y);
 
 
-        if(particles[x].position_x > goal_x){
+        if(particle_cell_x > cur_x){
             particles[x].position_x-=particles[x].vx*dt;
+           
         }
-        else{
+        else if(particle_cell_x <cur_x){
             particles[x].position_x+=particles[x].vx*dt;
         }
 
-        if(particles[x].position_y > goal_y){
+        
+
+        if(particle_cell_y > cur_y){
             particles[x].position_y-=particles[x].vy*dt;
         }
-        else
-        {
-             particles[x].position_y+=particles[x].vy*dt;
+        else if(particle_cell_y < cur_y){
+            particles[x].position_y+=particles[x].vy*dt;
         }
-      
-        if(particles[x].position_x > window_x || particles[x].position_y > window_y || (static_cast<int>(particles[x].position_x)==goal_x && static_cast<int>(particles[x].position_y)==goal_y)){
-            particles[x].position_x = distX(gen);
-            particles[x].position_y = distY(gen);
+
+
+        
+
+
+        
+
+        int particle_x_position = floor(particles[x].position_x);
+        int particle_y_position = floor(particles[x].position_y);
+
+
+        if (particle_x_position < 0 || particle_x_position > window_x || particle_y_position < 0 || particle_y_position > window_y
+            || (particle_cell_x == previous_index.first && particle_cell_y == previous_index.second)) {
+
+            float cur_x = distX(gen), cur_y = distY(gen);
+            while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle)
+            {
+            cur_x = distX(gen); cur_y = distY(gen);
+            }   
+
+
+            particles[x].position_x = cur_x;
+            particles[x].position_y = cur_y;
         }
 
     }

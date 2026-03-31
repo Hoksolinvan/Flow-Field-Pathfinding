@@ -1,4 +1,4 @@
-<img src="./assets/Flow_Field_Logo.png" width="100px" height="100px">
+<img src="./assets/Flow_Field_Logo.png" width="50px" height="50px">
 
 ## Flow Field PathFinding
 --

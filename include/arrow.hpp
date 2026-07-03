@@ -14,11 +14,6 @@ class Arrow {
     void draw(float cell_x, float cell_y, float cell_size, Direction dir);
 
 
-
-
-
-
-
     private:
     SDL_Renderer* renderer;
 };

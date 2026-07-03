@@ -7,6 +7,7 @@
 #include <random>
 #include <algorithm>
 #include <cmath>
+#include <thread>
 
 
 
@@ -18,13 +19,19 @@ constexpr int window_y = 1000;
 constexpr float increment_x = 1000/dimension_x;
 constexpr float increment_y = 1000/dimension_y;
 constexpr int particle_increment = 10;
-constexpr int particle_total_count = 200;
+constexpr int particle_total_count = 5000;
+constexpr int total_thread_count = 10;
 bool running = true;
 float goal_x;
 float goal_y;
 std::pair<int,int> previous_index{0,0};
 
-enum class Color{Red};
+
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_real_distribution<float> distX(0, window_x - increment_x);
+std::uniform_real_distribution<float> distY(0, window_y - increment_y);
+
 
 struct Grid_Cells {
 
@@ -37,23 +44,52 @@ struct Grid_Cells {
 
 
 struct Particle {
-    Particle(float position_x,float position_y, Color color): position_x(position_x), position_y(position_y), color(color){}
+    Particle(float position_x,float position_y): position_x(position_x), position_y(position_y){}
     float position_x;
     float position_y;
     float vx=25;
     float vy=25;
     
-    Color color;
     float size=10;
 };
 
 
-void reset(std::vector<Particle>& particles,const std::vector<std::vector<Tile>>& matrix){
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distX(0, window_x - increment_x);
-    std::uniform_real_distribution<float> distY(0, window_y - increment_y);
+struct Particle_optimized{
 
+    std::vector<float> position_x = std::vector<float>(particle_total_count,0.0f);
+    std::vector<float> position_y = std::vector<float>(particle_total_count,0.0f);
+    float vx=25;
+    float vy=25;
+    float size=10;
+
+};
+
+void reset_optimized(Particle_optimized& particles, const std::vector<std::vector<Tile>>& matrix,int threadId){
+
+    std::mt19937 localGen(rd() + threadId);  // separate engine per thread
+    std::uniform_real_distribution<float> localDistX(0, window_x - increment_x);
+    std::uniform_real_distribution<float> localDistY(0, window_y - increment_y);
+
+
+    // particles.position_x.clear();
+    // particles.position_y.clear();
+
+    for(int i=threadId*(particle_total_count/total_thread_count); i< (threadId*(particle_total_count/total_thread_count)+(particle_total_count/total_thread_count)); i++){
+        float cur_x = distX(gen), cur_y = distY(gen);
+        while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle){
+            cur_x = distX(gen); cur_y = distY(gen);
+        }
+        particles.position_x[i]=cur_x;
+        particles.position_y[i]=cur_y;
+    }
+
+    return;
+}
+
+
+
+void reset(std::vector<Particle>& particles,const std::vector<std::vector<Tile>>& matrix){
+    
     particles.clear();
 
     
@@ -64,7 +100,7 @@ void reset(std::vector<Particle>& particles,const std::vector<std::vector<Tile>>
             cur_x = distX(gen); cur_y = distY(gen);
         }
 
-        particles.emplace_back(cur_x,cur_y,Color::Red);
+        particles.emplace_back(cur_x,cur_y);
 
     }
     
@@ -72,12 +108,55 @@ void reset(std::vector<Particle>& particles,const std::vector<std::vector<Tile>>
     return;
 }
 
+void updateParticles(Particle_optimized& particles, const std::vector<std::vector<Tile>>& matrix,
+                      GenerateFlowField& flow_field, std::pair<int,int> previous_index,
+                      float dt, int start, int end, int threadId)
+{
+    std::mt19937 localGen(rd() + threadId);
+    std::uniform_real_distribution<float> localDistX(0, window_x - increment_x);
+    std::uniform_real_distribution<float> localDistY(0, window_y - increment_y);
+
+    for (int i = start; i < end; i++) {
+        int particle_cell_x = static_cast<int>(particles.position_x[i] / increment_x);
+        int particle_cell_y = static_cast<int>(particles.position_y[i] / increment_y);
+
+        particle_cell_x = std::clamp(particle_cell_x, 0, dimension_x - 1);
+        particle_cell_y = std::clamp(particle_cell_y, 0, dimension_y - 1);
+
+        auto [cur_x, cur_y] = flow_field.nextTile(particle_cell_x, particle_cell_y);
+        float target_x = cur_x * increment_x + increment_x / 2.0f;
+        float target_y = cur_y * increment_y + increment_y / 2.0f;
+        float dx = target_x - particles.position_x[i];
+        float dy = target_y - particles.position_y[i];
+        float dist = std::sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+            float dir_x = dx / dist;
+            float dir_y = dy / dist;
+            particles.position_x[i] += dir_x * particles.vx * dt;
+            particles.position_y[i] += dir_y * particles.vx * dt;
+        }
+
+        int particle_x_position = floor(particles.position_x[i]);
+        int particle_y_position = floor(particles.position_y[i]);
+        if (particle_x_position < 0 || particle_x_position > window_x ||
+            particle_y_position < 0 || particle_y_position > window_y ||
+            (particle_cell_x == previous_index.first && particle_cell_y == previous_index.second)) {
+
+            float cx = localDistX(localGen), cy = localDistY(localGen);
+            while (matrix[floor(cy / increment_y)][floor(cx / increment_x)].is_obstacle) {
+                cx = localDistX(localGen); cy = localDistY(localGen);
+            }
+            particles.position_x[i] = cx;
+            particles.position_y[i] = cy;
+        }
+    }
+}
 
 int main(int argc, char* argv[])
 {   
     srand(time(0));
 
-     
+    // setting up SDL Window and Graphics context
     SDL_Event event;
     SDL_Surface* icon = IMG_Load("assets/Flow_Field_Logo.png");
 
@@ -129,7 +208,7 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-
+    // generating terrain
     auto first_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,8);
     auto second_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,13);
     auto third_obstacle = terrainGenerator(rand()%dimension_x,rand()%dimension_y,dimension_x,dimension_y,9);
@@ -143,6 +222,10 @@ int main(int argc, char* argv[])
     std::vector<std::vector<Arrow>> Arrows;
     Arrows.resize(dimension_y);
 
+    Particle_optimized current_particles;
+
+
+    // initializing the cell grids and arrows 
     for(int i =0; i< dimension_x; i++){
             for(int j=0; j < dimension_y; j++){
                
@@ -151,7 +234,7 @@ int main(int argc, char* argv[])
 
             }
 
-        }
+    }
     
     GenerateFlowField flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y);
     
@@ -172,12 +255,6 @@ int main(int argc, char* argv[])
 
     auto matrix = flow_field.Generate();
     
-    
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> distX(0, window_x - increment_x);
-    std::uniform_real_distribution<float> distY(0, window_y - increment_y);
 
     for(int i =0; i< particle_total_count; i++){
         float cur_x = distX(gen), cur_y = distY(gen);
@@ -186,8 +263,20 @@ int main(int argc, char* argv[])
             cur_x = distX(gen); cur_y = distY(gen);
         }
 
-        particles.emplace_back(cur_x,cur_y,Color::Red);
+        particles.emplace_back(cur_x,cur_y);
     }
+
+
+    
+
+    //   for(int i=0; i< particle_total_count; i++){
+    //     float cur_x = distX(gen), cur_y = distY(gen);
+    //     while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle){
+    //         cur_x = distX(gen); cur_y = distY(gen);
+    //     }
+    //     particles.position_x[i]=cur_x;
+    //     particles.position_y[i]=cur_y;
+    // }
     
     
      
@@ -196,6 +285,8 @@ int main(int argc, char* argv[])
     
     Uint64 last_time = SDL_GetTicks();
 
+
+
     // 4. Main Loop
     while (running) {
         Uint64 now = SDL_GetTicks();
@@ -203,7 +294,7 @@ int main(int argc, char* argv[])
         last_time = now;
 
 
-        // Quitting Handler
+        // event handler
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
@@ -229,7 +320,17 @@ int main(int argc, char* argv[])
                                     
                     Cell_vector[grid_x][grid_y].clicked = true;
                     previous_index = {grid_x, grid_y};
-                    reset(particles,matrix);
+
+                    std::vector<std::thread> threadPool1;
+                    
+                    for(int i=0; i<total_thread_count; i++){
+                        threadPool1.emplace_back(reset_optimized,std::ref(current_particles),matrix,i);
+                    }
+
+                    for(auto & t : threadPool1){
+                        t.join();
+                    }
+                     //reset(particles,matrix);
                  
                 }
             }
@@ -238,7 +339,7 @@ int main(int argc, char* argv[])
 
 
     
-
+    // render the grid cells and the arrows
     for(int x =0; x<dimension_x;x++){
         for(int y =0; y<dimension_y;y++){
 
@@ -282,75 +383,96 @@ int main(int argc, char* argv[])
        
     }
 
+
         SDL_SetRenderDrawColor(renderer,255,0,0,255);
         goal_x = previous_index.first * increment_x + increment_x/2;
         goal_y = previous_index.second * increment_y + increment_y/2;
 
 
-        for(size_t x = 0; x < particles.size();x++){
+    //     for(size_t x = 0; x < particles.size();x++){
         
 
-        SDL_FRect rect = {particles[x].position_x, particles[x].position_y, particles[x].size, particles[x].size};
-        SDL_RenderFillRect(renderer,&rect);
+    //     SDL_FRect rect = {particles[x].position_x, particles[x].position_y, particles[x].size, particles[x].size};
+    //     SDL_RenderFillRect(renderer,&rect);
 
-        int particle_cell_x = static_cast<int>(particles[x].position_x / increment_x);
-        int particle_cell_y = static_cast<int>(particles[x].position_y / increment_y);
+    //     int particle_cell_x = static_cast<int>(particles[x].position_x / increment_x);
+    //     int particle_cell_y = static_cast<int>(particles[x].position_y / increment_y);
         
-        particle_cell_x = std::clamp(particle_cell_x, 0, dimension_x - 1);
-        particle_cell_y = std::clamp(particle_cell_y, 0, dimension_y - 1);
+    //     particle_cell_x = std::clamp(particle_cell_x, 0, dimension_x - 1);
+    //     particle_cell_y = std::clamp(particle_cell_y, 0, dimension_y - 1);
         
-        auto [cur_x,cur_y]=  flow_field.nextTile(particle_cell_x,particle_cell_y);
+    //     auto [cur_x,cur_y]=  flow_field.nextTile(particle_cell_x,particle_cell_y);
 
-        float target_x = cur_x * increment_x + increment_x / 2.0f;
-        float target_y = cur_y * increment_y + increment_y / 2.0f;
+    //     float target_x = cur_x * increment_x + increment_x / 2.0f;
+    //     float target_y = cur_y * increment_y + increment_y / 2.0f;
 
-        float dx = target_x - particles[x].position_x;
-        float dy = target_y - particles[x].position_y;
+    //     float dx = target_x - particles[x].position_x;
+    //     float dy = target_y - particles[x].position_y;
 
-        float dist = std::sqrt(dx * dx + dy * dy);
+    //     float dist = std::sqrt(dx * dx + dy * dy);
 
-        if (dist > 0) {
-            float dir_x = dx / dist;
-            float dir_y = dy / dist;
+    //     if (dist > 0) {
+    //         float dir_x = dx / dist;
+    //         float dir_y = dy / dist;
 
-            particles[x].position_x += dir_x * particles[x].vx * dt;
-            particles[x].position_y += dir_y * particles[x].vx * dt;
-        }
-
-
-        
+    //         particles[x].position_x += dir_x * particles[x].vx * dt;
+    //         particles[x].position_y += dir_y * particles[x].vx * dt;
+    //     }
 
 
         
 
-        int particle_x_position = floor(particles[x].position_x);
-        int particle_y_position = floor(particles[x].position_y);
+
+        
+
+    //     int particle_x_position = floor(particles[x].position_x);
+    //     int particle_y_position = floor(particles[x].position_y);
 
 
-        if (particle_x_position < 0 || particle_x_position > window_x || particle_y_position < 0 || particle_y_position > window_y
-            || (particle_cell_x == previous_index.first && particle_cell_y == previous_index.second)) {
+    //     if (particle_x_position < 0 || particle_x_position > window_x || particle_y_position < 0 || particle_y_position > window_y
+    //         || (particle_cell_x == previous_index.first && particle_cell_y == previous_index.second)) {
 
-            float cur_x = distX(gen), cur_y = distY(gen);
-            while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle)
-            {
-            cur_x = distX(gen); cur_y = distY(gen);
-            }   
+    //         float cur_x = distX(gen), cur_y = distY(gen);
+    //         while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle)
+    //         {
+    //         cur_x = distX(gen); cur_y = distY(gen);
+    //         }   
 
 
-            particles[x].position_x = cur_x;
-            particles[x].position_y = cur_y;
-        }
+    //         particles[x].position_x = cur_x;
+    //         particles[x].position_y = cur_y;
+    //     }
 
+    // }
+
+
+{
+    std::vector<std::thread> updateThreads;
+    int chunk = particle_total_count / total_thread_count;
+    for (int i = 0; i < total_thread_count; i++) {
+        int start = i * chunk;
+        int end = (i == total_thread_count - 1) ? particle_total_count : start + chunk;
+        updateThreads.emplace_back(updateParticles, std::ref(current_particles), std::cref(matrix),
+                                    std::ref(flow_field), previous_index, dt, start, end, i);
     }
+    for (auto& t : updateThreads) t.join();
+}
 
 
-
-
+for (size_t i = 0; i < current_particles.position_x.size(); i++) {
+    SDL_FRect rect = {
+        current_particles.position_x[i],
+        current_particles.position_y[i],
+        current_particles.size,
+        current_particles.size
+    };
+    SDL_RenderFillRect(renderer, &rect);
+}
 
         SDL_RenderPresent(renderer);
     }
 
-    // 6. Cleanup
+    
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();

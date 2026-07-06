@@ -30,8 +30,8 @@ std::pair<int,int> previous_index{0,0};
 // random device number generator
 std::random_device rd;
 std::mt19937 gen(rd());
-std::uniform_real_distribution<float> distX(0, window_x - increment_x);
-std::uniform_real_distribution<float> distY(0, window_y - increment_y);
+std::uniform_real_distribution<float> distX(0, window_x - 1);
+std::uniform_real_distribution<float> distY(0, window_y - 1);
 
 
 /**
@@ -81,8 +81,8 @@ void reset_optimized(Particle_optimized& particles, const std::vector<std::vecto
 
     // Creates random device engine per thread for 
     std::mt19937 localGen(rd() + threadId);  
-    std::uniform_real_distribution<float> localDistX(0, window_x - increment_x);
-    std::uniform_real_distribution<float> localDistY(0, window_y - increment_y);
+    std::uniform_real_distribution<float> localDistX(0, window_x); // - increment_x
+    std::uniform_real_distribution<float> localDistY(0, window_y); //  - increment_y
 
     // each thread handles its own updates for batch of particles to update thread position after it reached goal destination
     for(int i=threadId*(particle_total_count/total_thread_count); i< (threadId*(particle_total_count/total_thread_count)+(particle_total_count/total_thread_count)); i++){
@@ -123,8 +123,8 @@ void updateParticles(Particle_optimized& particles, const std::vector<std::vecto
 {  
     // Thread local RNG
     std::mt19937 localGen(rd() + threadId);
-    std::uniform_real_distribution<float> localDistX(0, window_x - increment_x);
-    std::uniform_real_distribution<float> localDistY(0, window_y - increment_y);
+    std::uniform_real_distribution<float> localDistX(0, window_x - 1);
+    std::uniform_real_distribution<float> localDistY(0, window_y - 1);
 
     for (int i = start; i < end; i++) {
 
@@ -277,20 +277,6 @@ int main(int argc, char* argv[])
 
     // generates flow field
     auto matrix = flow_field.Generate();
-    
-
-    // initial 
-    for(int i =0; i< particle_total_count; i++){
-        float cur_x = distX(gen), cur_y = distY(gen);
-        while(matrix[floor(cur_x/increment_x)][floor(cur_y/increment_y)].is_obstacle)
-        {
-            cur_x = distX(gen); cur_y = distY(gen);
-        }
-
-        particles.emplace_back(cur_x,cur_y);
-    }
-
-
     
 
     // initializes current clicked cell

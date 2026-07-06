@@ -10,7 +10,7 @@
 #include <thread>
 
 
-
+// global/static variables
 constexpr int terrain_count = 3;
 constexpr int dimension_x = 20;
 constexpr int dimension_y = 20;
@@ -27,55 +27,68 @@ float goal_y;
 std::pair<int,int> previous_index{0,0};
 
 
+// random device number generator
 std::random_device rd;
 std::mt19937 gen(rd());
 std::uniform_real_distribution<float> distX(0, window_x - increment_x);
 std::uniform_real_distribution<float> distY(0, window_y - increment_y);
 
 
+/**
+ * @struct Grid_Cells
+ * @brief Represents a single cell in the grid-based layout 
+ * 
+ * Stores the cell's grid rectangle utilized for pathfinding/obstacle logic and user interaction.
+ * 
+ * 
+ * 
+ */
 struct Grid_Cells {
 
     Grid_Cells(float coordinate_x, float coordinate_y, float width, float height) : rect{coordinate_x,coordinate_y,width,height}, clicked(false), obstacle(false) {}
-    SDL_FRect rect;
-    bool obstacle;
-    bool clicked;
+    SDL_FRect rect; ///< Primitive Object for defining cell's position and size within the grid
+    bool obstacle; ///< True if the current cell is an obstacle.
+    bool clicked; ///< True if the cell has been selected and/or clicked by the user
 
 };
 
-
-struct Particle {
-    Particle(float position_x,float position_y): position_x(position_x), position_y(position_y){}
-    float position_x;
-    float position_y;
-    float vx=25;
-    float vy=25;
-    
-    float size=10;
-};
-
-
+/**
+ * @struct Particle_optimized
+ * 
+ * @brief Struct-of-Arrays to store particle/entity movements and properties
+ */
 struct Particle_optimized{
 
-    std::vector<float> position_x = std::vector<float>(particle_total_count,0.0f);
-    std::vector<float> position_y = std::vector<float>(particle_total_count,0.0f);
-    float vx=25;
-    float vy=25;
-    float size=10;
+    std::vector<float> position_x = std::vector<float>(particle_total_count,0.0f); ///< Vector of particles' current x position
+    std::vector<float> position_y = std::vector<float>(particle_total_count,0.0f); ///< Vector of particles' current y position
+    float vx=25; ///< Particle's horizontal velocity
+    float vy=25; ///< Particle's vertical velocity
+    float size=10; ///< Radius of the particle
 
 };
 
+
+/**
+ * @brief Reset function for respawning each particles after it reaches goal point
+ * 
+ * @param particles Struct containing information of all particles 
+ * @param matrix Double nested vector containing grid-cells information
+ * @param threadId The calling thread's threadID
+ * 
+ * @retval None
+ */
 void reset_optimized(Particle_optimized& particles, const std::vector<std::vector<Tile>>& matrix,int threadId){
 
-    std::mt19937 localGen(rd() + threadId);  // separate engine per thread
+    // Creates random device engine per thread for 
+    std::mt19937 localGen(rd() + threadId);  
     std::uniform_real_distribution<float> localDistX(0, window_x - increment_x);
     std::uniform_real_distribution<float> localDistY(0, window_y - increment_y);
 
-
-    // particles.position_x.clear();
-    // particles.position_y.clear();
-
+    // each thread handles its own updates for batch of particles to update thread position after it reached goal destination
     for(int i=threadId*(particle_total_count/total_thread_count); i< (threadId*(particle_total_count/total_thread_count)+(particle_total_count/total_thread_count)); i++){
         float cur_x = distX(gen), cur_y = distY(gen);
+
+        // keeps finding new position to spawn into until the grid cell tile is not an obstacle
         while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle){
             cur_x = distX(gen); cur_y = distY(gen);
         }
@@ -87,45 +100,48 @@ void reset_optimized(Particle_optimized& particles, const std::vector<std::vecto
 }
 
 
-
-void reset(std::vector<Particle>& particles,const std::vector<std::vector<Tile>>& matrix){
-    
-    particles.clear();
-
-    
-    for(int i =0; i< particle_total_count; i++){
-        float cur_x = distX(gen), cur_y = distY(gen);
-        while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle)
-        {
-            cur_x = distX(gen); cur_y = distY(gen);
-        }
-
-        particles.emplace_back(cur_x,cur_y);
-
-    }
-    
-
-    return;
-}
-
+/**
+ * @brief Updates the position of a subset of particles based on flow-field steering.
+ *
+ * Each particle moves toward the center of the next tile indicated by the flow
+ * field. If a particle goes out of window bounds or reaches the goal cell
+ * (given by previous_index), it is respawned at a random, non-obstacle
+ * position within the window.
+ *
+ * @param particles Struct-of-arrays container holding position/velocity data for all particles.
+ * @param matrix Double-nested vector of grid Tiles, used to check whether a respawn point lands on an obstacle.
+ * @param flow_field Flow field graph providing the next tile a particle should move toward, given its current cell.
+ * @param previous_index Grid cell coordinates (x, y) treated as the goal cell particles that reach it are respawned.
+ * @param dt Time delta used to scale movement speed this frame.
+ * @param start Index (inclusive) of the first particle in this thread's assigned range.
+ * @param end Index (exclusive) of the last particle in this thread's assigned range.
+ * @param threadId Identifier of the calling thread, used to seed a thread-local RNG uniquely.
+ */
 void updateParticles(Particle_optimized& particles, const std::vector<std::vector<Tile>>& matrix,
                       GenerateFlowField& flow_field, std::pair<int,int> previous_index,
                       float dt, int start, int end, int threadId)
-{
+{  
+    // Thread local RNG
     std::mt19937 localGen(rd() + threadId);
     std::uniform_real_distribution<float> localDistX(0, window_x - increment_x);
     std::uniform_real_distribution<float> localDistY(0, window_y - increment_y);
 
     for (int i = start; i < end; i++) {
+
+        // Determine which grid cell this particle currently occupies.
         int particle_cell_x = static_cast<int>(particles.position_x[i] / increment_x);
         int particle_cell_y = static_cast<int>(particles.position_y[i] / increment_y);
-
         particle_cell_x = std::clamp(particle_cell_x, 0, dimension_x - 1);
         particle_cell_y = std::clamp(particle_cell_y, 0, dimension_y - 1);
 
+
+        // Determines the next tile to move forward too
         auto [cur_x, cur_y] = flow_field.nextTile(particle_cell_x, particle_cell_y);
         float target_x = cur_x * increment_x + increment_x / 2.0f;
         float target_y = cur_y * increment_y + increment_y / 2.0f;
+
+
+        // moves the particle towards target using normalized vector
         float dx = target_x - particles.position_x[i];
         float dy = target_y - particles.position_y[i];
         float dist = std::sqrt(dx * dx + dy * dy);
@@ -138,6 +154,8 @@ void updateParticles(Particle_optimized& particles, const std::vector<std::vecto
 
         int particle_x_position = floor(particles.position_x[i]);
         int particle_y_position = floor(particles.position_y[i]);
+
+        // Respawn particles if it goes out of bounds or reaches goal grid cell
         if (particle_x_position < 0 || particle_x_position > window_x ||
             particle_y_position < 0 || particle_y_position > window_y ||
             (particle_cell_x == previous_index.first && particle_cell_y == previous_index.second)) {
@@ -152,8 +170,12 @@ void updateParticles(Particle_optimized& particles, const std::vector<std::vecto
     }
 }
 
+
+
 int main(int argc, char* argv[])
 {   
+
+    // seeds the RNG
     srand(time(0));
 
     // setting up SDL Window and Graphics context
@@ -161,7 +183,6 @@ int main(int argc, char* argv[])
     SDL_Surface* icon = IMG_Load("assets/Flow_Field_Logo.png");
 
 
-    // 1. Initialize SDL
     if (!SDL_Init(SDL_INIT_VIDEO)) {
       std::cerr << "issues with initializing SDL3: "
           << SDL_GetError()
@@ -172,7 +193,6 @@ int main(int argc, char* argv[])
 
     
 
-    // 2. Create Window
     SDL_Window* window = SDL_CreateWindow(
         "Flow_Field Visualization",
         window_x,
@@ -196,7 +216,6 @@ int main(int argc, char* argv[])
     SDL_DestroySurface(icon);
 }
 
-    // 3. Create Renderer
     SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
 
     if (!renderer) {
@@ -215,14 +234,13 @@ int main(int argc, char* argv[])
 
    
     
-   
+    // Local variable for storing grid cell states
     std::vector<std::vector<Grid_Cells>> Cell_vector;
-    std::vector<Particle> particles;
-    Cell_vector.resize(dimension_y);
     std::vector<std::vector<Arrow>> Arrows;
-    Arrows.resize(dimension_y);
-
     Particle_optimized current_particles;
+
+    Cell_vector.resize(dimension_y);
+    Arrows.resize(dimension_y);
 
 
     // initializing the cell grids and arrows 
@@ -236,8 +254,12 @@ int main(int argc, char* argv[])
 
     }
     
+
+    // initializes flow field based on obstacle
     GenerateFlowField flow_field = GenerateFlowField(previous_index.first,previous_index.second,dimension_x,dimension_y);
     
+
+    // updating and setting up flow field cells obstacle parameter 
     for(const auto& [x,y]: first_obstacle){
         Cell_vector[x][y].obstacle=true;
        flow_field.setMatrix_obstacle(x,y);
@@ -253,9 +275,11 @@ int main(int argc, char* argv[])
         flow_field.setMatrix_obstacle(x,y);
     }
 
+    // generates flow field
     auto matrix = flow_field.Generate();
     
 
+    // initial 
     for(int i =0; i< particle_total_count; i++){
         float cur_x = distX(gen), cur_y = distY(gen);
         while(matrix[floor(cur_x/increment_x)][floor(cur_y/increment_y)].is_obstacle)
@@ -269,25 +293,15 @@ int main(int argc, char* argv[])
 
     
 
-    //   for(int i=0; i< particle_total_count; i++){
-    //     float cur_x = distX(gen), cur_y = distY(gen);
-    //     while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle){
-    //         cur_x = distX(gen); cur_y = distY(gen);
-    //     }
-    //     particles.position_x[i]=cur_x;
-    //     particles.position_y[i]=cur_y;
-    // }
-    
-    
-     
+    // initializes current clicked cell
     Cell_vector[previous_index.first][previous_index.second].clicked = true;
 
-    
+    // tick counter
     Uint64 last_time = SDL_GetTicks();
 
 
 
-    // 4. Main Loop
+    // Main Loop
     while (running) {
         Uint64 now = SDL_GetTicks();
         float dt = (now - last_time) / 1000.0f;
@@ -330,7 +344,7 @@ int main(int argc, char* argv[])
                     for(auto & t : threadPool1){
                         t.join();
                     }
-                     //reset(particles,matrix);
+                    
                  
                 }
             }
@@ -389,63 +403,8 @@ int main(int argc, char* argv[])
         goal_y = previous_index.second * increment_y + increment_y/2;
 
 
-    //     for(size_t x = 0; x < particles.size();x++){
-        
 
-    //     SDL_FRect rect = {particles[x].position_x, particles[x].position_y, particles[x].size, particles[x].size};
-    //     SDL_RenderFillRect(renderer,&rect);
-
-    //     int particle_cell_x = static_cast<int>(particles[x].position_x / increment_x);
-    //     int particle_cell_y = static_cast<int>(particles[x].position_y / increment_y);
-        
-    //     particle_cell_x = std::clamp(particle_cell_x, 0, dimension_x - 1);
-    //     particle_cell_y = std::clamp(particle_cell_y, 0, dimension_y - 1);
-        
-    //     auto [cur_x,cur_y]=  flow_field.nextTile(particle_cell_x,particle_cell_y);
-
-    //     float target_x = cur_x * increment_x + increment_x / 2.0f;
-    //     float target_y = cur_y * increment_y + increment_y / 2.0f;
-
-    //     float dx = target_x - particles[x].position_x;
-    //     float dy = target_y - particles[x].position_y;
-
-    //     float dist = std::sqrt(dx * dx + dy * dy);
-
-    //     if (dist > 0) {
-    //         float dir_x = dx / dist;
-    //         float dir_y = dy / dist;
-
-    //         particles[x].position_x += dir_x * particles[x].vx * dt;
-    //         particles[x].position_y += dir_y * particles[x].vx * dt;
-    //     }
-
-
-        
-
-
-        
-
-    //     int particle_x_position = floor(particles[x].position_x);
-    //     int particle_y_position = floor(particles[x].position_y);
-
-
-    //     if (particle_x_position < 0 || particle_x_position > window_x || particle_y_position < 0 || particle_y_position > window_y
-    //         || (particle_cell_x == previous_index.first && particle_cell_y == previous_index.second)) {
-
-    //         float cur_x = distX(gen), cur_y = distY(gen);
-    //         while(matrix[floor(cur_y/increment_y)][floor(cur_x/increment_x)].is_obstacle)
-    //         {
-    //         cur_x = distX(gen); cur_y = distY(gen);
-    //         }   
-
-
-    //         particles[x].position_x = cur_x;
-    //         particles[x].position_y = cur_y;
-    //     }
-
-    // }
-
-
+// moves the particle based on the grid information
 {
     std::vector<std::thread> updateThreads;
     int chunk = particle_total_count / total_thread_count;
@@ -459,6 +418,7 @@ int main(int argc, char* argv[])
 }
 
 
+// renders particles
 for (size_t i = 0; i < current_particles.position_x.size(); i++) {
     SDL_FRect rect = {
         current_particles.position_x[i],

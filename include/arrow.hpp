@@ -6,6 +6,11 @@
 enum class Direction {Up, Left, Down, Right};
 
 
+/**
+ * @class Arrow
+ * 
+ * @brief Manages Arrow direction
+ */
 class Arrow {
     public:
 
